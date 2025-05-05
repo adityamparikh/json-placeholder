@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -70,5 +71,71 @@ public class JsonPlaceholderService {
                 .uri("/posts?userId={userId}", userId)
                 .retrieve()
                 .body(new ParameterizedTypeReference<List<Post>>() {});
+    }
+
+    /**
+     * Generic method to fetch data from any endpoint with any return type.
+     *
+     * @param endpoint The API endpoint to call
+     * @param responseType The class of the expected response type
+     * @param <T> The type parameter for the response
+     * @return The response body converted to the specified type
+     */
+    public <T> T getForObject(String endpoint, Class<T> responseType) {
+        logger.info("Fetching data from endpoint: {}", endpoint);
+        return restClient.get()
+                .uri(endpoint)
+                .retrieve()
+                .body(responseType);
+    }
+
+    /**
+     * Generic method to fetch data from any endpoint with any parameterized return type.
+     *
+     * @param endpoint The API endpoint to call
+     * @param responseType The ParameterizedTypeReference for the expected response type
+     * @param <T> The type parameter for the response
+     * @return The response body converted to the specified type
+     */
+    public <T> T getForObject(String endpoint, ParameterizedTypeReference<T> responseType) {
+        logger.info("Fetching data from endpoint: {}", endpoint);
+        return restClient.get()
+                .uri(endpoint)
+                .retrieve()
+                .body(responseType);
+    }
+
+    /**
+     * Generic method to fetch data from any endpoint with any return type and path variables.
+     *
+     * @param endpoint The API endpoint to call
+     * @param responseType The class of the expected response type
+     * @param uriVariables The variables to expand in the URI template
+     * @param <T> The type parameter for the response
+     * @return The response body converted to the specified type
+     */
+    public <T> T getForObject(String endpoint, Class<T> responseType, Map<String, Object> uriVariables) {
+        logger.info("Fetching data from endpoint: {} with variables: {}", endpoint, uriVariables);
+        return restClient.get()
+                .uri(endpoint, uriVariables)
+                .retrieve()
+                .body(responseType);
+    }
+
+    /**
+     * Generic method to fetch data from any endpoint with any parameterized return type and path variables.
+     *
+     * @param endpoint The API endpoint to call
+     * @param responseType The ParameterizedTypeReference for the expected response type
+     * @param uriVariables The variables to expand in the URI template
+     * @param <T> The type parameter for the response
+     * @return The response body converted to the specified type
+     */
+    public <T> T getForObject(String endpoint, ParameterizedTypeReference<T> responseType, Map<String, Object> uriVariables) {
+        logger.info("Fetching data from endpoint: {} with variables: {}", endpoint, uriVariables);
+        return restClient.get()
+                .uri(endpoint, uriVariables)
+                .retrieve()
+                .body(responseType);
     }
 }
