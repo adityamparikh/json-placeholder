@@ -171,8 +171,8 @@ public class JsonPlaceholderController {
 
             // Use the generic method to fetch data as a List of Maps
             List<Object> data = jsonPlaceholderService.getForObject(
-                    uri, 
-                    new ParameterizedTypeReference<List<Object>>() {}, 
+                    uri,
+                    new ParameterizedTypeReference<>() {},
                     new HashMap<>(params));
             return ResponseEntity.ok(ApiResponse.success(data));
         } catch (Exception e) {

@@ -131,17 +131,136 @@ public class DocumentService {
 
     /**
      * Converts HTML to RTF.
-     * Note: This is a placeholder implementation.
      *
      * @param html HTML content to convert
      * @return RTF as byte array
      */
     public byte[] convertHtmlToRtf(String html) {
-        logger.info("Converting HTML to RTF (placeholder implementation)");
-        // This is a placeholder implementation
-        // In a real implementation, you would use a library like jrtf to convert HTML to RTF
-        String message = "RTF conversion not fully implemented. HTML content: " + html.substring(0, Math.min(100, html.length())) + "...";
-        return message.getBytes(StandardCharsets.UTF_8);
+        logger.info("Converting HTML to RTF");
+        try {
+            // Parse HTML with Jsoup
+            Document document = Jsoup.parse(html);
+            
+            // Start RTF document
+            StringBuilder rtf = new StringBuilder();
+            rtf.append("{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}");
+            
+            // Process the document body
+            Element body = document.body();
+            processElementsToRtf(body, rtf);
+            
+            // Close RTF document
+            rtf.append("}");
+            
+            return rtf.toString().getBytes(StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            logger.error("Error converting HTML to RTF", e);
+            throw new RuntimeException("Failed to convert HTML to RTF", e);
+        }
+    }
+    
+    /**
+     * Recursively processes HTML elements and converts them to RTF.
+     *
+     * @param element HTML element to process
+     * @param rtf StringBuilder to append RTF content to
+     */
+    private void processElementsToRtf(Element element, StringBuilder rtf) {
+        for (Element child : element.children()) {
+            String tagName = child.tagName().toLowerCase();
+            
+            switch (tagName) {
+                case "h1", "h2", "h3", "h4", "h5", "h6":
+                    rtf.append("\\par\\b ");
+                    rtf.append(escapeRtfText(child.text()));
+                    rtf.append("\\b0\\par ");
+                    break;
+                case "p":
+                    rtf.append("\\par ");
+                    rtf.append(escapeRtfText(child.text()));
+                    rtf.append("\\par ");
+                    break;
+                case "br":
+                    rtf.append("\\par ");
+                    break;
+                case "b", "strong":
+                    rtf.append("\\b ");
+                    rtf.append(escapeRtfText(child.text()));
+                    rtf.append("\\b0 ");
+                    break;
+                case "i", "em":
+                    rtf.append("\\i ");
+                    rtf.append(escapeRtfText(child.text()));
+                    rtf.append("\\i0 ");
+                    break;
+                case "u":
+                    rtf.append("\\ul ");
+                    rtf.append(escapeRtfText(child.text()));
+                    rtf.append("\\ul0 ");
+                    break;
+                case "ul":
+                    processListToRtf(child, rtf, true);
+                    break;
+                case "ol":
+                    processListToRtf(child, rtf, false);
+                    break;
+                case "li":
+                    // List items are handled by processListToRtf
+                    break;
+                default:
+                    // For other elements, just process their text content
+                    if (child.hasText()) {
+                        rtf.append(escapeRtfText(child.text()));
+                        rtf.append(" ");
+                    }
+                    // Recursively process child elements
+                    processElementsToRtf(child, rtf);
+                    break;
+            }
+        }
+    }
+    
+    /**
+     * Processes HTML lists and converts them to RTF.
+     *
+     * @param listElement HTML list element (ul or ol)
+     * @param rtf StringBuilder to append RTF content to
+     * @param isUnordered true for unordered lists, false for ordered lists
+     */
+    private void processListToRtf(Element listElement, StringBuilder rtf, boolean isUnordered) {
+        Elements listItems = listElement.children();
+        int itemNumber = 1;
+        
+        for (Element item : listItems) {
+            if ("li".equalsIgnoreCase(item.tagName())) {
+                rtf.append("\\par ");
+                if (isUnordered) {
+                    rtf.append("\\bullet ");
+                } else {
+                    rtf.append(itemNumber).append(". ");
+                    itemNumber++;
+                }
+                rtf.append(escapeRtfText(item.text()));
+            }
+        }
+        rtf.append("\\par ");
+    }
+    
+    /**
+     * Escapes special characters for RTF format.
+     *
+     * @param text Text to escape
+     * @return Escaped text
+     */
+    private String escapeRtfText(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("\\", "\\\\")
+                  .replace("{", "\\{")
+                  .replace("}", "\\}")
+                  .replace("\n", "\\par ")
+                  .replace("\r", "");
     }
 
     /**

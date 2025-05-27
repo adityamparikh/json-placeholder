@@ -1,6 +1,6 @@
 plugins {
     java
-    id("org.springframework.boot") version "3.4.5"
+    id("org.springframework.boot") version "3.2.5"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -20,6 +20,10 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-web")
+
+    // Redis and Caching
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+    implementation("org.springframework.boot:spring-boot-starter-cache")
 
     // JTE templating engine
     implementation("gg.jte:jte:3.1.9")
@@ -44,10 +48,22 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
+
+    // Testcontainers dependencies with explicit versions
+    val testcontainersVersion = "1.19.7"
+    testImplementation("org.testcontainers:junit-jupiter:${testcontainersVersion}")
+    testImplementation("org.testcontainers:testcontainers:${testcontainersVersion}")
+
+    // Jedis for Redis client
+    testImplementation("redis.clients:jedis:5.1.0")
+
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.withType<JavaCompile> {
+    options.compilerArgs = listOf("-Xlint:-unchecked", "-parameters")
 }

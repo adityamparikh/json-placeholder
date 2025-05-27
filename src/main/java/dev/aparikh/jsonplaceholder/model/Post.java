@@ -1,9 +1,12 @@
 package dev.aparikh.jsonplaceholder.model;
 
+import java.io.Serializable;
+
 /**
  * Model class representing a post from the JSONPlaceholder API.
  */
-public class Post {
+public class Post implements Serializable {
+    private static final long serialVersionUID = 1L;
     private Long id;
     private Long userId;
     private String title;
