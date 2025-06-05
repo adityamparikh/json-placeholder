@@ -3,6 +3,7 @@ package dev.aparikh.jsonplaceholder.service;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import reactor.test.StepVerifier;
 
 import dev.aparikh.jsonplaceholder.model.Post;
 import gg.jte.TemplateEngine;
@@ -24,13 +25,13 @@ public class DocumentServiceTest {
         String html = "<html><body><h1>Test Document</h1><p>This is a test paragraph.</p></body></html>";
 
         // Test conversion to DOCX
-        byte[] docxBytes = documentService.convertHtmlToDocx(html);
-
-        // Verify that the conversion produced non-empty output
-        assertNotNull(docxBytes);
-        assertTrue(docxBytes.length > 0);
-
-        System.out.println("[DEBUG_LOG] DOCX conversion successful, output size: " + docxBytes.length + " bytes");
+        StepVerifier.create(documentService.convertHtmlToDocx(html))
+                .assertNext(docxBytes -> {
+                    assertNotNull(docxBytes);
+                    assertTrue(docxBytes.length > 0);
+                    System.out.println("[DEBUG_LOG] DOCX conversion successful, output size: " + docxBytes.length + " bytes");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -44,21 +45,22 @@ public class DocumentServiceTest {
                      "</body></html>";
 
         // Test conversion to RTF
-        byte[] rtfBytes = documentService.convertHtmlToRtf(html);
+        StepVerifier.create(documentService.convertHtmlToRtf(html))
+                .assertNext(rtfBytes -> {
+                    assertNotNull(rtfBytes);
+                    assertTrue(rtfBytes.length > 0);
 
-        // Verify that the conversion produced non-empty output
-        assertNotNull(rtfBytes);
-        assertTrue(rtfBytes.length > 0);
+                    // Convert to string and verify RTF format
+                    String rtfContent = new String(rtfBytes, java.nio.charset.StandardCharsets.UTF_8);
+                    assertTrue(rtfContent.startsWith("{\\rtf1"));
+                    assertTrue(rtfContent.endsWith("}"));
+                    assertTrue(rtfContent.contains("Test Document"));
+                    assertTrue(rtfContent.contains("bold"));
+                    assertTrue(rtfContent.contains("italic"));
 
-        // Convert to string and verify RTF format
-        String rtfContent = new String(rtfBytes, java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue(rtfContent.startsWith("{\\rtf1"));
-        assertTrue(rtfContent.endsWith("}"));
-        assertTrue(rtfContent.contains("Test Document"));
-        assertTrue(rtfContent.contains("bold"));
-        assertTrue(rtfContent.contains("italic"));
-
-        System.out.println("[DEBUG_LOG] RTF conversion successful, output size: " + rtfBytes.length + " bytes");
+                    System.out.println("[DEBUG_LOG] RTF conversion successful, output size: " + rtfBytes.length + " bytes");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -66,16 +68,18 @@ public class DocumentServiceTest {
         // Test the generic format conversion method with RTF
         String html = "<html><body><h1>RTF Test</h1><p>Testing format conversion.</p></body></html>";
 
-        byte[] rtfBytes = documentService.convertHtmlToFormat(html, "rtf");
+        StepVerifier.create(documentService.convertHtmlToFormat(html, "rtf"))
+                .assertNext(rtfBytes -> {
+                    assertNotNull(rtfBytes);
+                    assertTrue(rtfBytes.length > 0);
 
-        assertNotNull(rtfBytes);
-        assertTrue(rtfBytes.length > 0);
+                    String rtfContent = new String(rtfBytes, java.nio.charset.StandardCharsets.UTF_8);
+                    assertTrue(rtfContent.startsWith("{\\rtf1"));
+                    assertTrue(rtfContent.contains("RTF Test"));
 
-        String rtfContent = new String(rtfBytes, java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue(rtfContent.startsWith("{\\rtf1"));
-        assertTrue(rtfContent.contains("RTF Test"));
-
-        System.out.println("[DEBUG_LOG] RTF format conversion successful, output size: " + rtfBytes.length + " bytes");
+                    System.out.println("[DEBUG_LOG] RTF format conversion successful, output size: " + rtfBytes.length + " bytes");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -86,17 +90,17 @@ public class DocumentServiceTest {
             new Post(2L, 1L, "Test Post 2", "This is test post 2")
         );
 
-        // Render posts to HTML
-        String html = documentService.renderPostsToHtml(posts);
-
-        // Convert HTML to DOCX
-        byte[] docxBytes = documentService.convertHtmlToDocx(html);
-
-        // Verify that the conversion produced non-empty output
-        assertNotNull(docxBytes);
-        assertTrue(docxBytes.length > 0);
-
-        System.out.println("[DEBUG_LOG] Posts rendered and converted to DOCX, output size: " + docxBytes.length + " bytes");
+        // Render posts to HTML and convert to DOCX
+        StepVerifier.create(
+                documentService.renderPostsToHtml(posts)
+                        .flatMap(html -> documentService.convertHtmlToDocx(html))
+        )
+                .assertNext(docxBytes -> {
+                    assertNotNull(docxBytes);
+                    assertTrue(docxBytes.length > 0);
+                    System.out.println("[DEBUG_LOG] Posts rendered and converted to DOCX, output size: " + docxBytes.length + " bytes");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -107,23 +111,24 @@ public class DocumentServiceTest {
             new Post(2L, 1L, "RTF Test Post 2", "This is the second test post for RTF conversion")
         );
 
-        // Render posts to HTML
-        String html = documentService.renderPostsToHtml(posts);
+        // Render posts to HTML and convert to RTF
+        StepVerifier.create(
+                documentService.renderPostsToHtml(posts)
+                        .flatMap(html -> documentService.convertHtmlToRtf(html))
+        )
+                .assertNext(rtfBytes -> {
+                    assertNotNull(rtfBytes);
+                    assertTrue(rtfBytes.length > 0);
 
-        // Convert HTML to RTF
-        byte[] rtfBytes = documentService.convertHtmlToRtf(html);
+                    // Verify RTF format
+                    String rtfContent = new String(rtfBytes, java.nio.charset.StandardCharsets.UTF_8);
+                    assertTrue(rtfContent.startsWith("{\\rtf1"));
+                    assertTrue(rtfContent.endsWith("}"));
+                    assertTrue(rtfContent.contains("RTF Test Post 1"));
+                    assertTrue(rtfContent.contains("RTF Test Post 2"));
 
-        // Verify that the conversion produced non-empty output
-        assertNotNull(rtfBytes);
-        assertTrue(rtfBytes.length > 0);
-
-        // Verify RTF format
-        String rtfContent = new String(rtfBytes, java.nio.charset.StandardCharsets.UTF_8);
-        assertTrue(rtfContent.startsWith("{\\rtf1"));
-        assertTrue(rtfContent.endsWith("}"));
-        assertTrue(rtfContent.contains("RTF Test Post 1"));
-        assertTrue(rtfContent.contains("RTF Test Post 2"));
-
-        System.out.println("[DEBUG_LOG] Posts rendered and converted to RTF, output size: " + rtfBytes.length + " bytes");
+                    System.out.println("[DEBUG_LOG] Posts rendered and converted to RTF, output size: " + rtfBytes.length + " bytes");
+                })
+                .verifyComplete();
     }
 }

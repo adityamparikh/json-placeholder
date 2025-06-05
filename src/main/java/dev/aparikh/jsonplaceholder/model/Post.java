@@ -1,6 +1,7 @@
 package dev.aparikh.jsonplaceholder.model;
 
 import java.io.Serializable;
+import java.util.Objects;
 
 /**
  * Model class representing a post from the JSONPlaceholder API.
@@ -55,6 +56,18 @@ public class Post implements Serializable {
 
     public void setBody(String body) {
         this.body = body;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Post post = (Post) o;
+        return Objects.equals(id, post.id) && Objects.equals(userId, post.userId) && Objects.equals(title, post.title);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, userId, title);
     }
 
     @Override

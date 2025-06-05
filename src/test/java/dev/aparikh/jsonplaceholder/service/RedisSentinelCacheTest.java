@@ -16,12 +16,14 @@ import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.reactive.function.client.WebClient;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
+import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.util.List;
 import java.util.Optional;
@@ -78,8 +80,8 @@ public class RedisSentinelCacheTest {
     static class TestConfig {
         @Bean
         @Primary
-        public RestClient jsonPlaceholderRestClient() {
-            return mock(RestClient.class);
+        public WebClient jsonPlaceholderWebClient() {
+            return mock(WebClient.class);
         }
 
         @Bean
@@ -97,11 +99,11 @@ public class RedisSentinelCacheTest {
     private JsonPlaceholderService jsonPlaceholderService;
 
     @Autowired
-    private RestClient restClient;
+    private WebClient webClient;
 
     @BeforeEach
     void setUp() {
-        reset(restClient);
+        reset(webClient);
     }
 
     @Test
@@ -111,33 +113,28 @@ public class RedisSentinelCacheTest {
         Post expectedPost = new Post(postId, 1L, "Test Title", "Test Body");
 
         // Setup mock chain
-        RestClient.RequestHeadersUriSpec<?> requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-        RestClient.RequestHeadersSpec<?> requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
 
         // Setup the mock chain behavior
-        doReturn(requestHeadersUriSpec).when(restClient).get();
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         doReturn(requestHeadersSpec).when(requestHeadersUriSpec).uri(anyString(), any(Object.class));
         doReturn(responseSpec).when(requestHeadersSpec).retrieve();
-        doReturn(expectedPost).when(responseSpec).body(Post.class);
+        doReturn(Mono.just(expectedPost)).when(responseSpec).bodyToMono(Post.class);
 
         // Act - First call should hit the API
-        Optional<Post> result1 = jsonPlaceholderService.getPostById(postId);
+        StepVerifier.create(jsonPlaceholderService.getPostById(postId))
+                .expectNext(expectedPost)
+                .verifyComplete();
 
         // Act - Second call should be from cache
-        Optional<Post> result2 = jsonPlaceholderService.getPostById(postId);
-
-        // Assert
-        assertTrue(result1.isPresent());
-        assertEquals(expectedPost.getId(), result1.get().getId());
-        assertEquals(expectedPost.getTitle(), result1.get().getTitle());
-
-        assertTrue(result2.isPresent());
-        assertEquals(expectedPost.getId(), result2.get().getId());
-        assertEquals(expectedPost.getTitle(), result2.get().getTitle());
+        StepVerifier.create(jsonPlaceholderService.getPostById(postId))
+                .expectNext(expectedPost)
+                .verifyComplete();
 
         // Verify that the API was called only once
-        verify(restClient, times(1)).get();
+        verify(webClient, times(1)).get();
     }
 
     @Test
@@ -149,32 +146,27 @@ public class RedisSentinelCacheTest {
         );
 
         // Setup mock chain
-        RestClient.RequestHeadersUriSpec<?> requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
-        RestClient.RequestHeadersSpec<?> requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
-        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        WebClient.RequestHeadersUriSpec requestHeadersUriSpec = mock(WebClient.RequestHeadersUriSpec.class);
+        WebClient.RequestHeadersSpec requestHeadersSpec = mock(WebClient.RequestHeadersSpec.class);
+        WebClient.ResponseSpec responseSpec = mock(WebClient.ResponseSpec.class);
 
         // Setup the mock chain behavior
-        doReturn(requestHeadersUriSpec).when(restClient).get();
+        doReturn(requestHeadersUriSpec).when(webClient).get();
         doReturn(requestHeadersSpec).when(requestHeadersUriSpec).uri("/posts");
         doReturn(responseSpec).when(requestHeadersSpec).retrieve();
-        doReturn(expectedPosts).when(responseSpec).body(any(ParameterizedTypeReference.class));
+        doReturn(reactor.core.publisher.Flux.fromIterable(expectedPosts)).when(responseSpec).bodyToFlux(Post.class);
 
         // Act - First call should hit the API
-        List<Post> result1 = jsonPlaceholderService.getAllPosts();
+        StepVerifier.create(jsonPlaceholderService.getAllPosts())
+                .expectNext(expectedPosts)
+                .verifyComplete();
 
         // Act - Second call should be from cache
-        List<Post> result2 = jsonPlaceholderService.getAllPosts();
-
-        // Assert
-        assertEquals(2, result1.size());
-        assertEquals(expectedPosts.get(0).getId(), result1.get(0).getId());
-        assertEquals(expectedPosts.get(1).getId(), result1.get(1).getId());
-
-        assertEquals(2, result2.size());
-        assertEquals(expectedPosts.get(0).getId(), result2.get(0).getId());
-        assertEquals(expectedPosts.get(1).getId(), result2.get(1).getId());
+        StepVerifier.create(jsonPlaceholderService.getAllPosts())
+                .expectNext(expectedPosts)
+                .verifyComplete();
 
         // Verify that the API was called only once
-        verify(restClient, times(1)).get();
+        verify(webClient, times(1)).get();
     }
 }

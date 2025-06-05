@@ -4,59 +4,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0" />
-    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <meta charset="UTF-8"/>
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0"/>
+    <meta http-equiv="X-UA-Compatible" content="ie=edge"/>
     <title>Posts</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <!-- Custom styles to enhance Bootstrap -->
+
     <style>
         body {
-            font-family: Arial, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            color: #333;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            background-color: #f8f9fa;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .post {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
-        }
-        .post-title {
-            font-size: 24px;
-            color: #2c3e50;
-            margin-top: 0;
-        }
+
         .post-meta {
-            font-size: 14px;
-            color: #7f8c8d;
-            margin-bottom: 10px;
-        }
-        .post-body {
-            line-height: 1.8;
+            color: #6c757d;
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <h1>Posts</h1>
 
-        @if(posts.isEmpty())
-            <p>No posts found.</p>
-        @else
+</head>
+
+<body>
+<div class="container py-4">
+    <header class="pb-3 mb-4 border-bottom">
+        <h1 class="display-5 fw-bold">Posts</h1>
+    </header>
+
+    @if(posts.isEmpty())
+        <div class="alert alert-info" role="alert">
+            No posts found.
+        </div>
+    @else
+        <div class="row row-cols-1 g-4">
             @for(var post : posts)
-                <div class="post">
-                    <h2 class="post-title">${post.getTitle()}</h2>
-                    <div class="post-meta">Post ID: ${post.getId()} | User ID: ${post.getUserId()}</div>
-                    <div class="post-body">${post.getBody()}</div>
+                <div class="col">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+                            <h2 class="card-title h4">${post.getTitle()}</h2>
+                            <div class="post-meta small mb-2">
+                                <span class="badge bg-secondary">Post ID: ${post.getId()}</span>
+                                <span class="badge bg-primary">User ID: ${post.getUserId()}</span>
+                            </div>
+                            <p class="card-text">${post.getBody()}</p>
+                        </div>
+                    </div>
                 </div>
             @endfor
-        @endif
-    </div>
+        </div>
+    @endif
+</div>
+
+<!-- Bootstrap JS Bundle with Popper -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
