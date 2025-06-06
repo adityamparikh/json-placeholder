@@ -1,5 +1,8 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
-    java
+    kotlin("jvm") version "1.9.22"
+    kotlin("plugin.spring") version "1.9.22"
     id("org.springframework.boot") version "3.2.5"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -7,10 +10,8 @@ plugins {
 group = "dev.aparikh"
 version = "0.0.1-SNAPSHOT"
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
+kotlin {
+    jvmToolchain(21)
 }
 
 repositories {
@@ -18,6 +19,16 @@ repositories {
 }
 
 dependencies {
+    // Kotlin dependencies
+    implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib")
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactive")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
+
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
 
@@ -49,6 +60,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("io.projectreactor:reactor-test")
+    testImplementation("org.jetbrains.kotlin:kotlin-test")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 
     // Testcontainers dependencies with explicit versions
     val testcontainersVersion = "1.19.7"
@@ -65,6 +78,9 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-tasks.withType<JavaCompile> {
-    options.compilerArgs = listOf("-Xlint:-unchecked", "-parameters")
+tasks.withType<KotlinCompile> {
+    kotlinOptions {
+        freeCompilerArgs = listOf("-Xjsr305=strict")
+        jvmTarget = "21"
+    }
 }

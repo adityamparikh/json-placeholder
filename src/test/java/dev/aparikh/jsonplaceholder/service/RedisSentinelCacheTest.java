@@ -154,7 +154,7 @@ public class RedisSentinelCacheTest {
         doReturn(requestHeadersUriSpec).when(webClient).get();
         doReturn(requestHeadersSpec).when(requestHeadersUriSpec).uri("/posts");
         doReturn(responseSpec).when(requestHeadersSpec).retrieve();
-        doReturn(reactor.core.publisher.Flux.fromIterable(expectedPosts)).when(responseSpec).bodyToFlux(Post.class);
+        doReturn(Mono.just(expectedPosts)).when(responseSpec).bodyToMono(any(ParameterizedTypeReference.class));
 
         // Act - First call should hit the API
         StepVerifier.create(jsonPlaceholderService.getAllPosts())

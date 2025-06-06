@@ -42,7 +42,7 @@ public class JsonPlaceholderControllerTest {
                 new Post(1L, 1L, "Test Post 1", "This is test post 1"),
                 new Post(2L, 1L, "Test Post 2", "This is test post 2")
         );
-        when(jsonPlaceholderService.getAllPosts()).thenReturn(Mono.just(posts));
+        when(jsonPlaceholderService.getAllPostsMono()).thenReturn(Mono.just(posts));
 
         // Act & Assert
         webTestClient.get()
@@ -58,7 +58,7 @@ public class JsonPlaceholderControllerTest {
                 .jsonPath("$.data[1].id").isEqualTo(2)
                 .jsonPath("$.data[1].title").isEqualTo("Test Post 2");
 
-        verify(jsonPlaceholderService, times(1)).getAllPosts();
+        verify(jsonPlaceholderService, times(1)).getAllPostsMono();
     }
 
     @Test
