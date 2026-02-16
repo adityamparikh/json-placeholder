@@ -1,72 +1,76 @@
-# OpenTelemetry Integration: Spring Boot 3.x vs Spring Boot 4.x
+# OpenTelemetry Integration: Spring Boot 3.2.5 vs Spring Boot 4.0.0
 
 ## Overview
 
-This document compares two approaches to adding OpenTelemetry observability (metrics, logging, distributed tracing) to the `json-placeholder` application, both targeting the **Grafana LGTM stack** (Loki, Grafana, Tempo, Mimir) via Docker Compose.
+This document compares OpenTelemetry observability (metrics, tracing, logging) in the `json-placeholder` application across two branches, both targeting the **Grafana LGTM stack** (Loki, Grafana, Tempo, Mimir) via Docker Compose.
 
-| | **Before (main branch)** | **After (sb4 branch)** |
+The `sb4` branch was migrated using the `spring-boot-4-migration` skill and follows the [foojay.io Spring Boot 4 OpenTelemetry guide](https://foojay.io/today/spring-boot-4-opentelemetry-explained/).
+
+| | **main branch (SB 3.2.5)** | **sb4 branch (SB 4.0.0)** |
 |---|---|---|
 | **Spring Boot** | 3.2.5 | 4.0.0 |
+| **Spring Framework** | 6.x | 7.x |
 | **Gradle** | 8.13 | 8.14 (required by SB4) |
-| **Approach** | Community Micrometer bridge | Native SB4 starter |
+| **Approach** | Micrometer bridge + manual wiring | Native `spring-boot-starter-opentelemetry` |
 
 ---
 
-## Dependencies
+## 1. Dependencies
 
-### Before: Spring Boot 3.2.5 (`main` branch)
+### Spring Boot 3.2.5 (`main`)
 
-Requires multiple dependencies from different projects to wire OTel together:
+Seven dependency lines across four groups, plus an external BOM:
 
 ```kotlin
-// OpenTelemetry: Micrometer tracing bridge + OTLP exporters
+// External BOM for OpenTelemetry version management
 implementation(platform("io.opentelemetry:opentelemetry-bom:1.35.0"))
+
+// Tracing: Micrometer bridge to OTel + OTLP exporter
 implementation("io.micrometer:micrometer-tracing-bridge-otel")
 implementation("io.opentelemetry:opentelemetry-exporter-otlp")
 
-// OpenTelemetry logback appender for OTLP log export
+// Logging: Logback OTLP appender + OTel SDK (for manual wiring)
 implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.1.0-alpha")
 implementation("io.opentelemetry:opentelemetry-sdk")
 
-// Micrometer OTLP registry for metrics export
+// Metrics: OTLP registry
 implementation("io.micrometer:micrometer-registry-otlp")
 
-// AOP for @Observed annotations
+// AOP for @Observed
 implementation("org.springframework.boot:spring-boot-starter-aop")
 ```
 
-**7 dependency lines** across 4 different groups (OpenTelemetry BOM, OpenTelemetry SDK/instrumentation, Micrometer, Spring Boot).
+Also requires a manual `OpenTelemetryLogConfig` Java class (~30 lines) to programmatically build `SdkLoggerProvider`, create an `OtlpHttpLogRecordExporter`, and install it into the logback appender.
 
-Also requires a manual `OpenTelemetryLogConfig` class to programmatically wire the logback OTLP appender to an `SdkLoggerProvider`.
+### Spring Boot 4.0.0 (`sb4`)
 
-### After: Spring Boot 4.0.0 (`sb4` branch)
-
-A single native starter replaces most of the above:
+Four dependency lines, all version-managed by SB4's BOM:
 
 ```kotlin
-// OpenTelemetry: Spring Boot 4 native starter
+// One starter replaces 5 manual OTel/Micrometer deps
 implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
-// Micrometer OTLP registry for metrics export
+// Logback OTLP appender for log export
+implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha")
+
+// Metrics OTLP registry
 implementation("io.micrometer:micrometer-registry-otlp")
 
-// AspectJ for @Observed annotations (renamed from spring-boot-starter-aop in SB4)
+// AspectJ for @Observed (renamed from spring-boot-starter-aop)
 implementation("org.springframework.boot:spring-boot-starter-aspectj")
 ```
 
-**3 dependency lines**, all version-managed by SB4's BOM. No external BOM needed. No manual `OpenTelemetryLogConfig` class needed — log export is handled by configuration properties alone.
-
-The `spring-boot-starter-opentelemetry` transitively includes:
+`spring-boot-starter-opentelemetry` transitively provides:
 - OpenTelemetry API + SDK
 - `micrometer-tracing-bridge-otel`
 - OTLP exporters for traces and logs
-- Logback OTLP appender auto-configuration
+- Auto-configuration for `OpenTelemetrySdk` bean
 
 ---
 
-## Build System
+## 2. Build System
 
-### Before: Spring Boot 3.2.5
+### Spring Boot 3.2.5
 
 ```kotlin
 plugins {
@@ -75,80 +79,66 @@ plugins {
 }
 ```
 
-Uses the `io.spring.dependency-management` plugin for BOM management.
-
-### After: Spring Boot 4.0.0
+### Spring Boot 4.0.0
 
 ```kotlin
 plugins {
     id("org.springframework.boot") version "4.0.0"
-}
-
-dependencies {
-    implementation(platform(
-        org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
-    ))
+    id("io.spring.dependency-management") version "1.1.7"
 }
 ```
 
-Drops the dependency management plugin in favor of Gradle's native `platform()` BOM support. Also requires:
-- Gradle 8.14+ (SB4 requirement)
-- `pluginManagement` block in `settings.gradle.kts` (for milestone repos if needed)
+Both use `io.spring.dependency-management` (it works fine with SB4). SB4 also requires Gradle 8.14+.
+
+**Additional SB4 starter changes:**
+- `spring-boot-starter-web` → `spring-boot-starter-webmvc` (old name deprecated)
+- `spring-boot-starter-aop` → `spring-boot-starter-aspectj` (old name deprecated)
+- Added `spring-boot-starter-restclient` (SB4 modular: `RestClient.Builder` auto-config is no longer bundled in webmvc)
 
 ---
 
-## Configuration Properties
+## 3. Configuration Properties
 
-### Before: Spring Boot 3.2.5
+### Spring Boot 3.2.5
 
 ```properties
-# Distributed tracing via Micrometer -> OTel bridge
 management.tracing.sampling.probability=1.0
 management.otlp.tracing.endpoint=http://localhost:4318/v1/traces
-
-# Metrics export via OTLP
 management.otlp.metrics.export.url=http://localhost:4318/v1/metrics
 management.otlp.metrics.export.step=10s
+# No log export property — requires OpenTelemetryLogConfig.java
 ```
 
-Tracing and metrics use `management.otlp.*` properties (Micrometer's namespace). Log export requires a custom `OpenTelemetryLogConfig` Java class with a hardcoded endpoint.
-
-### After: Spring Boot 4.0.0
+### Spring Boot 4.0.0
 
 ```properties
-# Distributed tracing - native OTel property namespace
 management.tracing.sampling.probability=1.0
-management.opentelemetry.tracing.export.otlp.endpoint=http://localhost:4318/v1/traces
-
-# Log export - new in SB4 (native OTel property namespace)
+management.opentelemetry.tracing.export.endpoint=http://localhost:4318/v1/traces
 management.opentelemetry.logging.export.otlp.endpoint=http://localhost:4318/v1/logs
-
-# Metrics export via OTLP
-management.otlp.metrics.export.url=http://localhost:4318/v1/metrics
-management.otlp.metrics.export.step=10s
+management.metrics.export.otlp.url=http://localhost:4318/v1/metrics
+management.metrics.export.otlp.step=10s
 ```
 
-Key differences:
-- **Traces** use `management.opentelemetry.tracing.*` (new native namespace)
-- **Logs** get a dedicated `management.opentelemetry.logging.*` property (not available in SB3 — requires custom Java config)
-- **Metrics** still use `management.otlp.metrics.*` (Micrometer's OTLP registry)
+**Property migrations** (per the [SB4 migration guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide)):
+
+| SB 3.2.5 Property | SB 4.0.0 Property |
+|---|---|
+| `management.otlp.tracing.endpoint` | `management.opentelemetry.tracing.export.endpoint` |
+| `management.otlp.tracing.timeout` | `management.opentelemetry.tracing.export.timeout` |
+| `management.otlp.metrics.export.url` | `management.metrics.export.otlp.url` |
+| *(no equivalent)* | `management.opentelemetry.logging.export.otlp.endpoint` |
 
 ---
 
-## Log Export (OTLP)
+## 4. Log Export (OTLP)
 
-### Before: Spring Boot 3.2.5
+### Spring Boot 3.2.5 — Manual Wiring
 
-Requires **3 extra pieces** to get logs into the LGTM stack via OTLP:
+Three pieces required:
 
 1. **Dependencies**: `opentelemetry-logback-appender-1.0` + `opentelemetry-sdk`
-2. **logback-spring.xml**: Add an `OpenTelemetryAppender`
-   ```xml
-   <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-       <captureExperimentalAttributes>true</captureExperimentalAttributes>
-   </appender>
-   ```
-3. **OpenTelemetryLogConfig.java**: Programmatically build `SdkLoggerProvider` with `OtlpHttpLogRecordExporter` and install it
+2. **logback-spring.xml**: OTEL appender
+3. **OpenTelemetryLogConfig.java** (~30 lines):
    ```java
    @Configuration
    public class OpenTelemetryLogConfig {
@@ -167,33 +157,92 @@ Requires **3 extra pieces** to get logs into the LGTM stack via OTLP:
    }
    ```
 
-### After: Spring Boot 4.0.0
+### Spring Boot 4.0.0 — Per [foojay.io Guide](https://foojay.io/today/spring-boot-4-opentelemetry-explained/)
 
-A single property — no custom config classes, no extra dependencies, no logback XML changes:
+SB4 auto-configures the `OpenTelemetrySdk` bean. You still need:
 
-```properties
-management.opentelemetry.logging.export.otlp.endpoint=http://localhost:4318/v1/logs
-```
+1. **Dependency**: `opentelemetry-logback-appender-1.0`
+2. **logback-spring.xml**: OTEL appender (same as SB3)
+3. **InstallOpenTelemetryAppender.java** (~10 lines, much simpler):
+   ```java
+   @Component
+   public class InstallOpenTelemetryAppender implements InitializingBean {
+       private final OpenTelemetry openTelemetry;
+       public InstallOpenTelemetryAppender(OpenTelemetry openTelemetry) {
+           this.openTelemetry = openTelemetry;
+       }
+       @Override
+       public void afterPropertiesSet() {
+           OpenTelemetryAppender.install(openTelemetry);
+       }
+   }
+   ```
 
-The native starter auto-configures the logback OTLP appender and SDK wiring.
+The key difference: SB4 provides the `OpenTelemetry` bean automatically. You just inject it and call `install()`. No manual `SdkLoggerProvider`, `BatchLogRecordProcessor`, or `OtlpHttpLogRecordExporter` creation needed.
 
 ---
 
-## Log Correlation (Console)
+## 5. Metrics (OTel Semantic Conventions)
 
-### Identical in both branches
+### Spring Boot 3.2.5
 
-Both use MDC keys in `logback-spring.xml` for console trace context:
+JVM metrics use Micrometer's default naming conventions (e.g., `jvm_memory_used_bytes`).
 
-```xml
-<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId=%X{traceId} spanId=%X{spanId}] %-5level %logger{36} - %msg%n</pattern>
+### Spring Boot 4.0.0 — Per [foojay.io Guide](https://foojay.io/today/spring-boot-4-opentelemetry-explained/)
+
+Added `OpenTelemetryConfiguration` to use OTel semantic convention metric names:
+
+```java
+@Configuration(proxyBeanMethods = false)
+public class OpenTelemetryConfiguration {
+    @Bean
+    ProcessorMetrics processorMetrics() {
+        return new ProcessorMetrics(List.of(),
+            new OpenTelemetryJvmCpuMeterConventions(Tags.empty()));
+    }
+    @Bean
+    JvmMemoryMetrics jvmMemoryMetrics() {
+        return new JvmMemoryMetrics(List.of(),
+            new OpenTelemetryJvmMemoryMeterConventions(Tags.empty()));
+    }
+    // ... JvmThreadMetrics, ClassLoaderMetrics similarly
+}
 ```
 
-**Note**: The Micrometer tracing bridge uses camelCase MDC keys (`traceId`, `spanId`), not snake_case (`trace_id`, `span_id`).
+This maps metric names to the [OTel semantic conventions](https://opentelemetry.io/docs/specs/semconv/system/jvm-metrics/) (e.g., `jvm.memory.used` instead of `jvm_memory_used_bytes`).
 
 ---
 
-## Service Layer (`@Observed`)
+## 6. Trace ID in HTTP Responses
+
+### Spring Boot 3.2.5
+
+Not included.
+
+### Spring Boot 4.0.0 — Per [foojay.io Guide](https://foojay.io/today/spring-boot-4-opentelemetry-explained/)
+
+Added `TraceIdFilter` that exposes the current trace ID as an `X-Trace-Id` response header:
+
+```java
+@Component
+public class TraceIdFilter implements Filter {
+    @Override
+    public void doFilter(ServletRequest request, ServletResponse response,
+                         FilterChain chain) throws IOException, ServletException {
+        if (response instanceof HttpServletResponse httpResponse) {
+            String traceId = Span.current().getSpanContext().getTraceId();
+            httpResponse.setHeader("X-Trace-Id", traceId);
+        }
+        chain.doFilter(request, response);
+    }
+}
+```
+
+This is useful for correlating client requests with backend traces in Grafana.
+
+---
+
+## 7. Service Layer (`@Observed`)
 
 ### Identical in both branches
 
@@ -203,57 +252,67 @@ Both use MDC keys in `logback-spring.xml` for console trace context:
 public List<Post> getAllPosts() { ... }
 ```
 
-The `@Observed` annotation from `io.micrometer.observation.annotation` works the same way in both versions. It requires:
-- `ObservedAspect` bean registered via `ObservationConfig`
-- AOP/AspectJ starter (`spring-boot-starter-aop` in SB3, `spring-boot-starter-aspectj` in SB4)
+The `@Observed` annotation works the same way. Both require:
+- `ObservedAspect` bean (via `ObservationConfig`)
+- `management.observations.annotations.enabled=true`
+- AOP starter: `spring-boot-starter-aop` (SB3) / `spring-boot-starter-aspectj` (SB4)
 
 ---
 
-## Infrastructure (Docker Compose)
+## 8. Log Correlation (Console)
 
 ### Identical in both branches
 
-```yaml
-services:
-  lgtm:
-    image: grafana/otel-lgtm:latest
-    container_name: lgtm
-    ports:
-      - "3000:3000"   # Grafana UI
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318"   # OTLP HTTP receiver
+```xml
+<pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [traceId=%X{traceId} spanId=%X{spanId}] %-5level %logger{36} - %msg%n</pattern>
 ```
 
-Both approaches use the same LGTM stack and OTLP HTTP endpoint (port 4318).
+> **Note**: Use camelCase MDC keys (`traceId`, `spanId`), not snake_case. The Micrometer tracing bridge populates camelCase keys.
 
 ---
 
-## Summary: What Changes and What Stays the Same
+## 9. Other SB4 Migration Changes
 
-| Aspect | SB 3.2.5 (Before) | SB 4.0.0 (After) |
+These are not OTel-specific but were required during the migration:
+
+| Change | Reason |
+|---|---|
+| `GenericJackson2JsonRedisSerializer` → `RedisSerializer.json()` | Class removed in Spring Data Redis (SB4) |
+| Empty sentinel master breaks tests | SB4 validates sentinel master ID is not blank |
+| `spring-boot-starter-restclient` added | SB4 modular: `RestClient.Builder` not in webmvc starter |
+
+---
+
+## Summary
+
+| Aspect | SB 3.2.5 (main) | SB 4.0.0 (sb4) |
 |---|---|---|
-| **OTel Dependencies** | 7 lines across 4 groups + external BOM | 1 native starter |
-| **Log Export Config** | Custom `OpenTelemetryLogConfig` class + logback XML appender | Single property |
-| **Dependency Mgmt** | `io.spring.dependency-management` plugin | Gradle native `platform()` |
-| **Trace Config** | `management.otlp.tracing.*` | `management.opentelemetry.tracing.*` |
-| **Log Export** | Manual SDK wiring | `management.opentelemetry.logging.*` |
-| **Metrics Config** | `management.otlp.metrics.*` | `management.otlp.metrics.*` (unchanged) |
-| **AOP Starter** | `spring-boot-starter-aop` | `spring-boot-starter-aspectj` |
-| **@Observed Usage** | Identical | Identical |
+| **OTel dependencies** | 7 lines + external BOM | 4 lines, SB4 BOM manages versions |
+| **Log export setup** | 30-line manual `OpenTelemetryLogConfig` | 10-line `InstallOpenTelemetryAppender` |
+| **Trace export property** | `management.otlp.tracing.endpoint` | `management.opentelemetry.tracing.export.endpoint` |
+| **Log export property** | None (hardcoded in Java) | `management.opentelemetry.logging.export.otlp.endpoint` |
+| **Metrics export property** | `management.otlp.metrics.export.url` | `management.metrics.export.otlp.url` |
+| **OTel metric conventions** | Micrometer defaults | OTel semantic conventions via config beans |
+| **Trace ID in responses** | Not available | `X-Trace-Id` header via `TraceIdFilter` |
+| **AOP starter** | `spring-boot-starter-aop` | `spring-boot-starter-aspectj` |
+| **Web starter** | `spring-boot-starter-web` | `spring-boot-starter-webmvc` + `spring-boot-starter-restclient` |
+| **@Observed usage** | Identical | Identical |
 | **Docker Compose** | Identical | Identical |
-| **Gradle Version** | 8.13 | 8.14+ required |
-| **GraalVM Native** | Requires extra config | First-class support |
-| **Auto-instrumentation** | Manual bridge only | HTTP server/client, JDBC auto-instrumented |
+| **Gradle version** | 8.13 | 8.14+ required |
+| **Auto-instrumentation** | Manual bridge only | HTTP server/client auto-instrumented |
 
-### Migration Effort: Low
+### Migration Effort: Low–Medium
 
-The `@Observed` annotations and `ObservationConfig` are the same across both versions. The main migration work is:
-1. Swap dependencies (replace 7 lines with 1 starter)
-2. Delete `OpenTelemetryLogConfig.java` and OTEL logback appender from XML
-3. Update property namespaces (`management.otlp.tracing` -> `management.opentelemetry.tracing`)
-4. Add `management.opentelemetry.logging.export.otlp.endpoint` property for log export
-5. Rename AOP starter (`-aop` -> `-aspectj`)
-6. Upgrade Gradle to 8.14+
+The `@Observed` annotations and `ObservationConfig` are identical. The main work:
+
+1. Upgrade Gradle to 8.14+
+2. Swap dependencies (7 manual OTel deps → 1 starter + logback appender)
+3. Rename starters: `web` → `webmvc`, `aop` → `aspectj`, add `restclient`
+4. Migrate OTLP properties to `management.opentelemetry.*` namespace
+5. Replace `OpenTelemetryLogConfig` with `InstallOpenTelemetryAppender`
+6. Add `OpenTelemetryConfiguration` for OTel metric naming conventions
+7. Add `TraceIdFilter` for trace ID response headers
+8. Fix `GenericJackson2JsonRedisSerializer` → `RedisSerializer.json()`
 
 ---
 
@@ -272,16 +331,13 @@ docker compose up -d
 ### Access:
 - **Application**: http://localhost:8080/api/posts
 - **Grafana**: http://localhost:3000 (admin/admin)
-  - **Tempo** (traces): Explore -> Tempo data source
-  - **Loki** (logs): Explore -> Loki data source
-  - **Mimir** (metrics): Explore -> Mimir data source
+  - **Tempo** (traces): Explore → Tempo data source
+  - **Loki** (logs): Explore → Loki data source
+  - **Mimir** (metrics): Explore → Mimir data source
 
-### Test an endpoint and see traces:
+### Test an endpoint:
 ```bash
-curl http://localhost:8080/api/posts/1
+curl -v http://localhost:8080/api/posts/1
 ```
 
-Then open Grafana -> Explore -> Tempo to see the distributed trace with spans for:
-- HTTP server request (`GET /api/posts/1`)
-- `@Observed` span: `get-post-by-id`
-- HTTP client request to `jsonplaceholder.typicode.com`
+On the `sb4` branch, the response includes `X-Trace-Id` — use it to find the trace in Grafana Tempo.
