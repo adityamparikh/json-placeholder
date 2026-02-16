@@ -21,12 +21,15 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-web")
-    implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     // OpenTelemetry: Micrometer tracing bridge + OTLP exporters
     implementation(platform("io.opentelemetry:opentelemetry-bom:1.35.0"))
     implementation("io.micrometer:micrometer-tracing-bridge-otel")
     implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+
+    // OpenTelemetry logback appender for OTLP log export
+    implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.1.0-alpha")
+    implementation("io.opentelemetry:opentelemetry-sdk")
 
     // Micrometer OTLP registry for metrics export
     implementation("io.micrometer:micrometer-registry-otlp")
@@ -58,11 +61,6 @@ dependencies {
 
     // HTML to RTF conversion
     implementation("com.tutego:jrtf:0.7")
-
-    // Claude API Integration
-    implementation("com.fasterxml.jackson.core:jackson-databind")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
