@@ -1,5 +1,6 @@
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "3.2.5"
     id("io.spring.dependency-management") version "1.1.7"
 }
@@ -20,6 +21,7 @@ repositories {
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webflux")
 
     // OpenTelemetry: Micrometer tracing bridge + OTLP exporters
     implementation(platform("io.opentelemetry:opentelemetry-bom:1.35.0"))
@@ -57,6 +59,11 @@ dependencies {
     // HTML to RTF conversion
     implementation("com.tutego:jrtf:0.7")
 
+    // Claude API Integration
+    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     runtimeOnly("org.springframework.boot:spring-boot-docker-compose")
@@ -74,6 +81,16 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
 }
 
 tasks.withType<JavaCompile> {
