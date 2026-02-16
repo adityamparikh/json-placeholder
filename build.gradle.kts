@@ -1,7 +1,7 @@
 plugins {
     java
     jacoco
-    id("org.springframework.boot") version "3.2.5"
+    id("org.springframework.boot") version "4.0.0"
     id("io.spring.dependency-management") version "1.1.7"
 }
 
@@ -20,22 +20,21 @@ repositories {
 
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-restclient")
 
-    // OpenTelemetry: Micrometer tracing bridge + OTLP exporters
-    implementation(platform("io.opentelemetry:opentelemetry-bom:1.35.0"))
-    implementation("io.micrometer:micrometer-tracing-bridge-otel")
-    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+    // OpenTelemetry: Spring Boot 4 native starter (replaces micrometer-tracing-bridge-otel,
+    // opentelemetry-exporter-otlp, opentelemetry-sdk, opentelemetry-bom)
+    implementation("org.springframework.boot:spring-boot-starter-opentelemetry")
 
-    // OpenTelemetry logback appender for OTLP log export
-    implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.1.0-alpha")
-    implementation("io.opentelemetry:opentelemetry-sdk")
+    // Logback OTLP appender for log export (per foojay.io guide)
+    implementation("io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0:2.21.0-alpha")
 
     // Micrometer OTLP registry for metrics export
     implementation("io.micrometer:micrometer-registry-otlp")
 
-    // AOP for @Observed annotations
-    implementation("org.springframework.boot:spring-boot-starter-aop")
+    // AspectJ for @Observed annotations (renamed from spring-boot-starter-aop in SB4)
+    implementation("org.springframework.boot:spring-boot-starter-aspectj")
 
     // Redis and Caching
     implementation("org.springframework.boot:spring-boot-starter-data-redis")

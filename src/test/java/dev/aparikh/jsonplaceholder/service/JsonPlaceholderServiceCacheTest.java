@@ -27,8 +27,8 @@ import static org.mockito.Mockito.*;
 @SpringBootTest
 @TestPropertySource(properties = {
     "spring.cache.type=simple",
-    "spring.data.redis.sentinel.master=",
-    "spring.data.redis.sentinel.nodes="
+    "spring.data.redis.sentinel.master=dummy",
+    "spring.data.redis.sentinel.nodes=localhost:26379"
 })
 public class JsonPlaceholderServiceCacheTest {
 
