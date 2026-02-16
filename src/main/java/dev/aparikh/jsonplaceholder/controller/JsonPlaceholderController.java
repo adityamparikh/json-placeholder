@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 import java.util.HashMap;
 import java.util.List;
@@ -29,11 +31,30 @@ public class JsonPlaceholderController {
     private static final Logger logger = LoggerFactory.getLogger(JsonPlaceholderController.class);
     private final JsonPlaceholderService jsonPlaceholderService;
     private final DocumentService documentService;
+    private final RestClient restClient;
 
     @Autowired
-    public JsonPlaceholderController(JsonPlaceholderService jsonPlaceholderService, DocumentService documentService) {
+    public JsonPlaceholderController(JsonPlaceholderService jsonPlaceholderService, DocumentService documentService, RestClient restClient) {
         this.jsonPlaceholderService = jsonPlaceholderService;
         this.documentService = documentService;
+        this.restClient = restClient;
+    }
+    @GetMapping(value = "/stream", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    public ResponseEntity<StreamingResponseBody> streamData() {
+        return ResponseEntity.ok()
+                .body(outputStream -> {
+                    restClient.get()
+                            .uri("posts")
+                            .exchange((request, response) -> {
+                                response.getBody().transferTo(outputStream);
+                                try {
+                                    Thread.sleep(1000); // Simulate delay for streaming
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                return null;
+                            });
+                });
     }
 
     /**

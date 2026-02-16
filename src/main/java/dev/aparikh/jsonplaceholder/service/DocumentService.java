@@ -5,6 +5,7 @@ import dev.aparikh.jsonplaceholder.dto.PostDto;
 import dev.aparikh.jsonplaceholder.model.Post;
 import gg.jte.TemplateEngine;
 import gg.jte.output.StringOutput;
+import io.micrometer.observation.annotation.Observed;
 import org.docx4j.Docx4J;
 import org.docx4j.openpackaging.packages.WordprocessingMLPackage;
 import org.docx4j.openpackaging.exceptions.Docx4JException;
@@ -35,6 +36,7 @@ import java.util.stream.Collectors;
  * Service for document generation and conversion.
  */
 @Service
+@Observed
 public class DocumentService {
 
     private static final Logger logger = LoggerFactory.getLogger(DocumentService.class);
@@ -51,6 +53,7 @@ public class DocumentService {
      * @param posts List of posts to render
      * @return HTML string
      */
+    @Observed(name = "document.render-posts-to-html", contextualName = "render-posts-to-html")
     public String renderPostsToHtml(List<Post> posts) {
         logger.info("Rendering {} posts to HTML", posts.size());
         StringOutput output = new StringOutput();
@@ -70,6 +73,7 @@ public class DocumentService {
      * @param html HTML content to convert
      * @return PDF as byte array
      */
+    @Observed(name = "document.convert-html-to-pdf", contextualName = "convert-html-to-pdf")
     public byte[] convertHtmlToPdf(String html) {
         logger.info("Converting HTML to PDF");
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -90,6 +94,7 @@ public class DocumentService {
      * @param html HTML content to convert
      * @return DOCX as byte array
      */
+    @Observed(name = "document.convert-html-to-docx", contextualName = "convert-html-to-docx")
     public byte[] convertHtmlToDocx(String html) {
         logger.info("Converting HTML to DOCX");
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
@@ -135,6 +140,7 @@ public class DocumentService {
      * @param html HTML content to convert
      * @return RTF as byte array
      */
+    @Observed(name = "document.convert-html-to-rtf", contextualName = "convert-html-to-rtf")
     public byte[] convertHtmlToRtf(String html) {
         logger.info("Converting HTML to RTF");
         try {
@@ -270,6 +276,7 @@ public class DocumentService {
      * @param format Target format (pdf, docx, rtf)
      * @return Converted document as byte array
      */
+    @Observed(name = "document.convert-html-to-format", contextualName = "convert-html-to-format")
     public byte[] convertHtmlToFormat(String html, String format) {
         logger.info("Converting HTML to format: {}", format);
         return switch (format.toLowerCase()) {

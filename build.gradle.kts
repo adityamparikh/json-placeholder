@@ -21,6 +21,17 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-web")
 
+    // OpenTelemetry: Micrometer tracing bridge + OTLP exporters
+    implementation(platform("io.opentelemetry:opentelemetry-bom:1.35.0"))
+    implementation("io.micrometer:micrometer-tracing-bridge-otel")
+    implementation("io.opentelemetry:opentelemetry-exporter-otlp")
+
+    // Micrometer OTLP registry for metrics export
+    implementation("io.micrometer:micrometer-registry-otlp")
+
+    // AOP for @Observed annotations
+    implementation("org.springframework.boot:spring-boot-starter-aop")
+
     // Redis and Caching
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("org.springframework.boot:spring-boot-starter-cache")
@@ -48,6 +59,7 @@ dependencies {
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    runtimeOnly("org.springframework.boot:spring-boot-docker-compose")
 
     // Testcontainers dependencies with explicit versions
     val testcontainersVersion = "1.19.7"

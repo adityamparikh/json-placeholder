@@ -1,6 +1,7 @@
 package dev.aparikh.jsonplaceholder.service;
 
 import dev.aparikh.jsonplaceholder.model.Post;
+import io.micrometer.observation.annotation.Observed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import java.util.Optional;
  * Service class for interacting with the JSONPlaceholder API.
  */
 @Service
+@Observed
 public class JsonPlaceholderService {
 
     private static final Logger logger = LoggerFactory.getLogger(JsonPlaceholderService.class);
@@ -32,6 +34,7 @@ public class JsonPlaceholderService {
      *
      * @return A list of all posts
      */
+    @Observed(name = "json-placeholder.get-all-posts", contextualName = "get-all-posts")
     @Cacheable(value = "posts")
     public List<Post> getAllPosts() {
         logger.info("Fetching all posts from JSONPlaceholder API");
@@ -53,6 +56,7 @@ public class JsonPlaceholderService {
      * @param id The ID of the post to retrieve
      * @return An Optional containing the post if found, or empty if not found
      */
+    @Observed(name = "json-placeholder.get-post-by-id", contextualName = "get-post-by-id")
     @Cacheable(value = "posts", key = "#id")
     public Optional<Post> getPostById(Long id) {
         logger.info("Fetching post with ID: {}", id);
@@ -74,6 +78,7 @@ public class JsonPlaceholderService {
      * @param userId The ID of the user whose posts to retrieve
      * @return A list of posts by the specified user
      */
+    @Observed(name = "json-placeholder.get-posts-by-user-id", contextualName = "get-posts-by-user-id")
     @Cacheable(value = "postsByUser", key = "#userId")
     public List<Post> getPostsByUserId(Long userId) {
         logger.info("Fetching posts for user with ID: {}", userId);
@@ -96,6 +101,7 @@ public class JsonPlaceholderService {
      * @param <T> The type parameter for the response
      * @return The response body converted to the specified type
      */
+    @Observed(name = "json-placeholder.get-for-object", contextualName = "get-for-object")
     @Cacheable(value = "apiData", key = "{ #endpoint, #responseType }")
     public <T> T getForObject(String endpoint, Class<T> responseType) {
         logger.info("Fetching data from endpoint: {}", endpoint);
@@ -113,6 +119,7 @@ public class JsonPlaceholderService {
      * @param <T> The type parameter for the response
      * @return The response body converted to the specified type
      */
+    @Observed(name = "json-placeholder.get-for-object-typed", contextualName = "get-for-object-typed")
     @Cacheable(value = "apiData", key = "#endpoint")
     public <T> T getForObject(String endpoint, ParameterizedTypeReference<T> responseType) {
         logger.info("Fetching data from endpoint: {}", endpoint);
@@ -131,6 +138,7 @@ public class JsonPlaceholderService {
      * @param <T> The type parameter for the response
      * @return The response body converted to the specified type
      */
+    @Observed(name = "json-placeholder.get-for-object-vars", contextualName = "get-for-object-vars")
     @Cacheable(value = "apiData", key = "{ #endpoint, #responseType, #uriVariables }")
     public <T> T getForObject(String endpoint, Class<T> responseType, Map<String, Object> uriVariables) {
         logger.info("Fetching data from endpoint: {} with variables: {}", endpoint, uriVariables);
@@ -149,6 +157,7 @@ public class JsonPlaceholderService {
      * @param <T> The type parameter for the response
      * @return The response body converted to the specified type
      */
+    @Observed(name = "json-placeholder.get-for-object-typed-vars", contextualName = "get-for-object-typed-vars")
     @Cacheable(value = "apiData", key = "{ #endpoint, #uriVariables }")
     public <T> T getForObject(String endpoint, ParameterizedTypeReference<T> responseType, Map<String, Object> uriVariables) {
         logger.info("Fetching data from endpoint: {} with variables: {}", endpoint, uriVariables);

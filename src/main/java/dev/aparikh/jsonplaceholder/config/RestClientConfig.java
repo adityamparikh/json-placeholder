@@ -18,8 +18,8 @@ public class RestClientConfig {
      * @return A configured RestClient instance
      */
     @Bean
-    public RestClient jsonPlaceholderRestClient() {
-        return RestClient.builder()
+    public RestClient jsonPlaceholderRestClient(RestClient.Builder builder) {
+        return builder
                 .baseUrl(JSON_PLACEHOLDER_BASE_URL)
                 .build();
     }
