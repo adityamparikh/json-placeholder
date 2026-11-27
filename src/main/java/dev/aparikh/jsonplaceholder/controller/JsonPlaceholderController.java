@@ -50,7 +50,8 @@ public class JsonPlaceholderController {
                                 try {
                                     Thread.sleep(1000); // Simulate delay for streaming
                                 } catch (InterruptedException e) {
-                                    throw new RuntimeException(e);
+                                    Thread.currentThread().interrupt();
+                                    throw new IllegalStateException("Interrupted while streaming posts", e);
                                 }
                                 return null;
                             });
@@ -219,6 +220,19 @@ public class JsonPlaceholderController {
             @RequestParam(required = false) Long postId) {
         logger.info("Received request to generate {} document with userId: {}, postId: {}", format, userId, postId);
 
+        // Validate the format before doing any work, so an unsupported format is a 400 rather than a 500
+        MediaType contentType = switch (format.toLowerCase()) {
+            case "pdf" -> MediaType.APPLICATION_PDF;
+            case "docx" -> MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+            case "rtf" -> MediaType.parseMediaType("application/rtf");
+            default -> null;
+        };
+        if (contentType == null) {
+            return ResponseEntity
+                    .status(HttpStatus.BAD_REQUEST)
+                    .body(("Unsupported format: " + format).getBytes());
+        }
+
         try {
             // Fetch posts based on parameters
             List<Post> posts;
@@ -249,22 +263,7 @@ public class JsonPlaceholderController {
             // Set appropriate headers based on format
             HttpHeaders headers = new HttpHeaders();
             headers.setContentDispositionFormData("attachment", "posts." + format.toLowerCase());
-
-            switch (format.toLowerCase()) {
-                case "pdf":
-                    headers.setContentType(MediaType.APPLICATION_PDF);
-                    break;
-                case "docx":
-                    headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document"));
-                    break;
-                case "rtf":
-                    headers.setContentType(MediaType.parseMediaType("application/rtf"));
-                    break;
-                default:
-                    return ResponseEntity
-                            .status(HttpStatus.BAD_REQUEST)
-                            .body(("Unsupported format: " + format).getBytes());
-            }
+            headers.setContentType(contentType);
 
             return ResponseEntity
                     .ok()

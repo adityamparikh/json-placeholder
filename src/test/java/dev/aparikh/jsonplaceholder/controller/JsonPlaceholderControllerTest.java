@@ -237,26 +237,15 @@ public class JsonPlaceholderControllerTest {
     }
 
     @Test
-    public void generateDocument_WithUnsupportedFormat_ShouldReturnError() throws Exception {
-        // Arrange
-        List<Post> posts = Arrays.asList(
-                new Post(1L, 1L, "Test Post 1", "This is test post 1")
-        );
-        String html = "<html><body><h1>Posts</h1></body></html>";
-
-        when(jsonPlaceholderService.getAllPosts()).thenReturn(posts);
-        when(documentService.renderPostsToHtml(posts)).thenReturn(html);
-        when(documentService.convertHtmlToFormat(html, "unsupported"))
-                .thenThrow(new IllegalArgumentException("Unsupported format: unsupported"));
-
+    public void generateDocument_WithUnsupportedFormat_ShouldReturnBadRequest() throws Exception {
         // Act & Assert
         mockMvc.perform(get("/api/posts/document")
                 .param("format", "unsupported")
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Unsupported format: unsupported"));
 
-        verify(jsonPlaceholderService, times(1)).getAllPosts();
-        verify(documentService, times(1)).renderPostsToHtml(posts);
-        verify(documentService, times(1)).convertHtmlToFormat(html, "unsupported");
+        // The format is rejected before any posts are fetched or rendered
+        verifyNoInteractions(jsonPlaceholderService, documentService);
     }
 }
