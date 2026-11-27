@@ -238,14 +238,38 @@ public class JsonPlaceholderControllerTest {
 
     @Test
     public void generateDocument_WithUnsupportedFormat_ShouldReturnBadRequest() throws Exception {
+        String maliciousFormat = "<script>alert(1)</script>";
+
         // Act & Assert
         mockMvc.perform(get("/api/posts/document")
-                .param("format", "unsupported")
+                .param("format", maliciousFormat)
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Unsupported format: unsupported"));
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_PLAIN))
+                .andExpect(content().string("Unsupported format; expected pdf, docx or rtf"))
+                .andExpect(content().string(not(containsString(maliciousFormat))));
 
         // The format is rejected before any posts are fetched or rendered
         verifyNoInteractions(jsonPlaceholderService, documentService);
+    }
+
+    @Test
+    public void generateDocument_WhenConversionFails_ShouldNotEchoExceptionMessage() throws Exception {
+        // Arrange
+        List<Post> posts = List.of(new Post(1L, 1L, "Test Post 1", "This is test post 1"));
+        String html = "<html><body><h1>Posts</h1></body></html>";
+        String internalDetail = "<img src=x onerror=alert(1)> at /internal/path";
+
+        when(jsonPlaceholderService.getAllPosts()).thenReturn(posts);
+        when(documentService.renderPostsToHtml(posts)).thenReturn(html);
+        when(documentService.convertHtmlToFormat(html, "pdf")).thenThrow(new IllegalStateException(internalDetail));
+
+        // Act & Assert
+        mockMvc.perform(get("/api/posts/document")
+                .param("format", "pdf"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_PLAIN))
+                .andExpect(content().string("Failed to generate document"))
+                .andExpect(content().string(not(containsString(internalDetail))));
     }
 }

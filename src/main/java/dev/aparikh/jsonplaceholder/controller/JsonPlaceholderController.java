@@ -16,8 +16,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -221,16 +223,15 @@ public class JsonPlaceholderController {
         logger.info("Received request to generate {} document with userId: {}, postId: {}", format, userId, postId);
 
         // Validate the format before doing any work, so an unsupported format is a 400 rather than a 500
-        MediaType contentType = switch (format.toLowerCase()) {
+        String normalizedFormat = format.toLowerCase(Locale.ROOT);
+        MediaType contentType = switch (normalizedFormat) {
             case "pdf" -> MediaType.APPLICATION_PDF;
             case "docx" -> MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
             case "rtf" -> MediaType.parseMediaType("application/rtf");
             default -> null;
         };
         if (contentType == null) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(("Unsupported format: " + format).getBytes());
+            return plainTextResponse(HttpStatus.BAD_REQUEST, "Unsupported format; expected pdf, docx or rtf");
         }
 
         try {
@@ -249,9 +250,7 @@ public class JsonPlaceholderController {
             }
 
             if (posts.isEmpty()) {
-                return ResponseEntity
-                        .status(HttpStatus.NOT_FOUND)
-                        .body("No posts found".getBytes());
+                return plainTextResponse(HttpStatus.NOT_FOUND, "No posts found");
             }
 
             // Convert posts to HTML
@@ -262,7 +261,7 @@ public class JsonPlaceholderController {
 
             // Set appropriate headers based on format
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentDispositionFormData("attachment", "posts." + format.toLowerCase());
+            headers.setContentDispositionFormData("attachment", "posts." + normalizedFormat);
             headers.setContentType(contentType);
 
             return ResponseEntity
@@ -270,10 +269,20 @@ public class JsonPlaceholderController {
                     .headers(headers)
                     .body(document);
         } catch (Exception e) {
+            // Log the detail; never echo exception messages back to the client
             logger.error("Error generating document", e);
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(("Failed to generate document: " + e.getMessage()).getBytes());
+            return plainTextResponse(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to generate document");
         }
+    }
+
+    /**
+     * Builds a fixed, plain-text error response. The explicit {@code text/plain} content type stops browsers
+     * from sniffing the body as HTML, and callers pass constant messages so no request input is reflected.
+     */
+    private static ResponseEntity<byte[]> plainTextResponse(HttpStatus status, String message) {
+        return ResponseEntity
+                .status(status)
+                .contentType(new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8))
+                .body(message.getBytes(StandardCharsets.UTF_8));
     }
 }
