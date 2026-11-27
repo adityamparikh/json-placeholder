@@ -30,7 +30,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Service for document generation and conversion.
@@ -61,7 +60,7 @@ public class DocumentService {
         // Convert Post objects to PostDto objects to avoid classloader issues
         List<PostDto> postDtos = posts.stream()
             .map(PostDto::new)
-            .collect(Collectors.toList());
+            .toList();
 
         templateEngine.render("posts.jte", postDtos, output);
         return output.toString();
@@ -176,44 +175,38 @@ public class DocumentService {
             String tagName = child.tagName().toLowerCase();
             
             switch (tagName) {
-                case "h1", "h2", "h3", "h4", "h5", "h6":
+                case "h1", "h2", "h3", "h4", "h5", "h6" -> {
                     rtf.append("\\par\\b ");
                     rtf.append(escapeRtfText(child.text()));
                     rtf.append("\\b0\\par ");
-                    break;
-                case "p":
+                }
+                case "p" -> {
                     rtf.append("\\par ");
                     rtf.append(escapeRtfText(child.text()));
                     rtf.append("\\par ");
-                    break;
-                case "br":
-                    rtf.append("\\par ");
-                    break;
-                case "b", "strong":
+                }
+                case "br" -> rtf.append("\\par ");
+                case "b", "strong" -> {
                     rtf.append("\\b ");
                     rtf.append(escapeRtfText(child.text()));
                     rtf.append("\\b0 ");
-                    break;
-                case "i", "em":
+                }
+                case "i", "em" -> {
                     rtf.append("\\i ");
                     rtf.append(escapeRtfText(child.text()));
                     rtf.append("\\i0 ");
-                    break;
-                case "u":
+                }
+                case "u" -> {
                     rtf.append("\\ul ");
                     rtf.append(escapeRtfText(child.text()));
                     rtf.append("\\ul0 ");
-                    break;
-                case "ul":
-                    processListToRtf(child, rtf, true);
-                    break;
-                case "ol":
-                    processListToRtf(child, rtf, false);
-                    break;
-                case "li":
+                }
+                case "ul" -> processListToRtf(child, rtf, true);
+                case "ol" -> processListToRtf(child, rtf, false);
+                case "li" -> {
                     // List items are handled by processListToRtf
-                    break;
-                default:
+                }
+                default -> {
                     // For other elements, just process their text content
                     if (child.hasText()) {
                         rtf.append(escapeRtfText(child.text()));
@@ -221,7 +214,7 @@ public class DocumentService {
                     }
                     // Recursively process child elements
                     processElementsToRtf(child, rtf);
-                    break;
+                }
             }
         }
     }
