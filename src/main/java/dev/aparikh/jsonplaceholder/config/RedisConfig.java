@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheManager;
+import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.RedisSentinelConfiguration;
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
@@ -102,7 +103,9 @@ public class RedisConfig {
         try {
             // Try to create Redis connection factory and test connection
             RedisConnectionFactory connectionFactory = redisConnectionFactory();
-            connectionFactory.getConnection().ping();
+            try (RedisConnection connection = connectionFactory.getConnection()) {
+                connection.ping();
+            }
             logger.info("Redis connection successful, using Redis cache manager");
             return RedisCacheManager.builder(connectionFactory).build();
         } catch (Exception e) {

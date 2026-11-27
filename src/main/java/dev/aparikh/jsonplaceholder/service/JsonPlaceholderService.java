@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
@@ -54,7 +55,8 @@ public class JsonPlaceholderService {
      * Retrieves a specific post by its ID.
      *
      * @param id The ID of the post to retrieve
-     * @return An Optional containing the post if found, or empty if not found
+     * @return An Optional containing the post if found, or empty if the API responds 404 Not Found
+     * @throws RuntimeException if the API call fails for any other reason
      */
     @Observed(name = "json-placeholder.get-post-by-id", contextualName = "get-post-by-id")
     @Cacheable(value = "posts", key = "#id")
@@ -66,9 +68,14 @@ public class JsonPlaceholderService {
                     .retrieve()
                     .body(Post.class);
             return Optional.ofNullable(post);
-        } catch (Exception e) {
-            logger.error("Error fetching post with ID: {}", id, e);
+        } catch (HttpClientErrorException.NotFound e) {
+            logger.info("Post with ID {} not found", id);
             return Optional.empty();
+        } catch (Exception e) {
+            // Any other failure (5xx, timeout, connection error) is not "not found": rethrow so it
+            // surfaces as an error and is not cached as an empty result.
+            logger.error("Error fetching post with ID: {}", id, e);
+            throw new RuntimeException("Failed to fetch post from external API", e);
         }
     }
 

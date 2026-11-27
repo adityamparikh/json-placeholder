@@ -12,13 +12,18 @@ import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -131,5 +136,46 @@ public class JsonPlaceholderServiceCacheTest {
 
         // Verify that the API was called only once
         verify(restClient, times(1)).get();
+    }
+
+    @Test
+    void getPostById_WhenApiReturnsNotFound_ShouldReturnEmpty() {
+        Long postId = 404L;
+        RestClient.ResponseSpec responseSpec = stubGetPostById();
+        doThrow(HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null, null, null))
+                .when(responseSpec).body(Post.class);
+
+        Optional<Post> result = jsonPlaceholderService.getPostById(postId);
+
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    void getPostById_WhenApiFails_ShouldThrowAndNotCacheTheFailure() {
+        Long postId = 503L;
+        Post expectedPost = new Post(postId, 1L, "Recovered", "Body");
+        RestClient.ResponseSpec responseSpec = stubGetPostById();
+        doThrow(HttpServerErrorException.create(HttpStatus.SERVICE_UNAVAILABLE, "Unavailable", null, null, null))
+                .doReturn(expectedPost)
+                .when(responseSpec).body(Post.class);
+
+        // A server error must not be reported (or cached) as "post not found"
+        assertThrows(RuntimeException.class, () -> jsonPlaceholderService.getPostById(postId));
+
+        // Once the API recovers, the next call reaches it and returns the post
+        Optional<Post> result = jsonPlaceholderService.getPostById(postId);
+        assertTrue(result.isPresent());
+        assertEquals(expectedPost.getTitle(), result.get().getTitle());
+        verify(restClient, times(2)).get();
+    }
+
+    private RestClient.ResponseSpec stubGetPostById() {
+        RestClient.RequestHeadersUriSpec<?> requestHeadersUriSpec = mock(RestClient.RequestHeadersUriSpec.class);
+        RestClient.RequestHeadersSpec<?> requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
+        RestClient.ResponseSpec responseSpec = mock(RestClient.ResponseSpec.class);
+        doReturn(requestHeadersUriSpec).when(restClient).get();
+        doReturn(requestHeadersSpec).when(requestHeadersUriSpec).uri(anyString(), any(Object.class));
+        doReturn(responseSpec).when(requestHeadersSpec).retrieve();
+        return responseSpec;
     }
 }
